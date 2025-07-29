@@ -5,6 +5,11 @@ import Category from '../models/Category.js';
 import mongoose from 'mongoose';
 import path from 'path';
 import fs from 'fs/promises';
+import { fileURLToPath } from 'url';
+
+// Helper to get the correct directory path
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 
 // --- NEW FUNCTION ADDED ---
@@ -37,7 +42,7 @@ export const getResourceById = async (req, res) => {
     }
 };
 
-// --- NO CHANGES TO EXISTING FUNCTIONS ---
+
 
 export const getMyResources = async (req, res) => {
   try {
@@ -93,10 +98,14 @@ export const uploadResource = async (req, res) => {
     if (!categoryExists) {
       return res.status(400).json({ error: 'Category not found' });
     }
-    const resource = new Resource({
-      title, description, category,
-      filePath: req.file.path,
-      fileName: req.file.filename,
+     const resource = new Resource({
+      title,
+      description,
+      category,
+      // --- THIS IS THE FIX ---
+      // We now save only the FILENAME, not the full path.
+      filePath: req.file.filename, 
+      fileName: req.file.originalname, // Save the original filename for the user
       fileType: req.file.mimetype,
       fileSize: req.file.size,
       uploadedBy: req.user.id,
@@ -140,10 +149,13 @@ export const downloadResource = async (req, res) => {
     if (!resource) {
       return res.status(404).json({ error: 'Resource not found' });
     }
-    res.download(resource.filePath, resource.fileName);
+    // --- THIS IS THE FIX ---
+    // Dynamically construct the full path on the server.
+    const fullPath = path.join(__dirname, '../Uploads', resource.filePath);
+    res.download(fullPath, resource.fileName);
   } catch (err) {
     console.error('Resource Download Error:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Server error while downloading file.' });
   }
 };
 
@@ -153,21 +165,19 @@ export const deleteResource = async (req, res) => {
     if (!resource) {
       return res.status(404).json({ error: 'Resource not found' });
     }
-    
     const userIsAdmin = req.user.role === 'admin';
-    // --- THIS IS THE FIX ---
-    // Using the .equals() method is the correct and safest way
-    // to compare Mongoose ObjectIds.
     const userIsOwner = resource.uploadedBy.equals(req.user.id);
-
     if (!userIsOwner && !userIsAdmin) {
       return res.status(403).json({ error: 'Forbidden: You do not have permission to delete this resource' });
     }
     
+    // --- THIS IS THE FIX ---
+    // Dynamically construct the full path to delete the file.
+    const fullPath = path.join(__dirname, '../Uploads', resource.filePath);
     try {
-      await fs.unlink(resource.filePath);
+      await fs.unlink(fullPath);
     } catch (fileError) {
-      console.error(`Could not delete file: ${resource.filePath}. It may have been already removed. Error: ${fileError.message}`);
+      console.error(`Could not delete file: ${fullPath}. It may have been already removed. Error: ${fileError.message}`);
     }
     await resource.deleteOne();
     res.status(200).json({ message: 'Resource deleted successfully' });

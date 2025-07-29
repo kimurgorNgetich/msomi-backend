@@ -3,9 +3,13 @@
 import User from '../models/User.js';
 import Resource from '../models/Resource.js';
 import Category from '../models/Category.js';
-import fs from 'fs/promises'; // Import the file system module
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// --- EXISTING FUNCTIONS (No changes) ---
+// Helper to get the correct directory path
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -65,25 +69,20 @@ export const deleteUser = async (req, res) => {
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
-
-        // Find all resources uploaded by this user
         const resources = await Resource.find({ uploadedBy: user._id });
 
-        // Delete all associated files from the server
         for (const resource of resources) {
             try {
-                await fs.unlink(resource.filePath);
+                // --- THIS IS THE FIX ---
+                // Dynamically construct the full path to delete the file.
+                const fullPath = path.join(__dirname, '../Uploads', resource.filePath);
+                await fs.unlink(fullPath);
             } catch (fileError) {
                 console.error(`Could not delete file for resource ${resource._id}: ${fileError.message}`);
             }
         }
-
-        // Delete all resource documents from the database
         await Resource.deleteMany({ uploadedBy: user._id });
-
-        // Finally, delete the user
         await user.deleteOne();
-
         res.status(200).json({ message: 'User and all associated resources have been deleted.' });
     } catch (err) {
         console.error('Admin Delete User Error:', err);
@@ -102,17 +101,15 @@ export const deleteResource = async (req, res) => {
         if (!resource) {
             return res.status(404).json({ error: 'Resource not found' });
         }
-
-        // Delete the physical file
+        // --- THIS IS THE FIX ---
+        // Dynamically construct the full path to delete the file.
+        const fullPath = path.join(__dirname, '../Uploads', resource.filePath);
         try {
-            await fs.unlink(resource.filePath);
+            await fs.unlink(fullPath);
         } catch (fileError) {
-            console.error(`Could not delete file ${resource.filePath}: ${fileError.message}`);
+            console.error(`Could not delete file ${fullPath}: ${fileError.message}`);
         }
-
-        // Delete the database record
         await resource.deleteOne();
-
         res.status(200).json({ message: 'Resource deleted successfully.' });
     } catch (err) {
         console.error('Admin Delete Resource Error:', err);
