@@ -37,24 +37,33 @@ if (!fs.existsSync(uploadsDir)) {
 }
 // --- END OF NEW CODE BLOCK ---
 
-// CORS
+// --- THIS IS THE FINAL FIX ---
+// We are making the CORS configuration more explicit to handle production environments.
 const allowedOrigins = [
     'http://127.0.0.1:8082', 
     'http://localhost:8082', 
     'http://127.0.0.1:5500', 
     'http://localhost:5500',
-    process.env.FRONTEND_URL
+    process.env.FRONTEND_URL // This should be https://msomi.onrender.com
 ];
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    // or from our list of allowed origins.
+    if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
-}));
+};
+
+app.use(cors(corsOptions));
+// This handles the preflight requests that browsers send for CORS.
+app.options('*', cors(corsOptions));
+// --- END OF FIX ---
 
 app.use(cookieParser());
 app.use(express.json());
