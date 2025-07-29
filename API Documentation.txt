@@ -1,0 +1,62 @@
+# Academic Resources Platform API
+Base URL: http://localhost:5000/api
+All requests require:
+- Cookies: `connect.sid`, `token` (JWT from login)
+- CSRF-Token header for POST/DELETE
+- Content-Type: application/json (except POST /api/resources)
+
+## Authentication
+- **POST /api/auth/register**
+  - Body: `{ email: string, password: string, confirmPassword: string }`
+  - Response: 201, `{ message: "User registered successfully" }`
+- **POST /api/auth/login**
+  - Body: `{ email: string, password: string }`
+  - Response: 200, `{ message: "Login successful" }`, sets `token` cookie
+- **POST /api/auth/change-password**
+  - Headers: `CSRF-Token`
+  - Cookies: `connect.sid`, `token`
+  - Body: `{ currentPassword: string, newPassword: string, confirmNewPassword: string }`
+  - Response: 200, `{ message: "Password changed successfully" }`
+- **POST /api/auth/logout**
+  - Headers: `CSRF-Token`
+  - Cookies: `connect.sid`, `token`
+  - Response: 200, `{ message: "Logout successful" }`
+- **DELETE /api/auth/delete-account**
+  - Headers: `CSRF-Token`
+  - Cookies: `connect.sid`, `token`
+  - Body: `{ password: string }`
+  - Response: 200, `{ message: "Account deleted successfully" }`
+- **GET /api/csrf-token**
+  - Response: 200, `{ csrfToken: string }`
+
+## Resources
+- **POST /api/resources**
+  - Headers: `CSRF-Token`
+  - Cookies: `connect.sid`, `token`
+  - Body (form-data): `title: string`, `description: string`, `category: string (ObjectId)`, `file: file (PDF, JPEG, PNG, DOC, DOCX)`
+  - Response: 201, `{ message: "Resource uploaded successfully", resource: {...} }`
+- **GET /api/resources**
+  - Cookies: `connect.sid`, `token`
+  - Response: 200, `[ {...}, {...} ]`
+- **GET /api/resources/search?q={query}**
+  - Cookies: `connect.sid`, `token`
+  - Response: 200, `[ {...}, {...} ]`
+- **GET /api/resources/:id/download**
+  - Cookies: `connect.sid`, `token`
+  - Response: 200, binary file (Content-Disposition: attachment)
+- **DELETE /api/resources/:id**
+  - Headers: `CSRF-Token`
+  - Cookies: `connect.sid`, `token`
+  - Response: 200, `{ message: "Resource deleted successfully" }`
+
+## Categories
+- **GET /api/categories**
+  - Cookies: `connect.sid`, `token`
+  - Response: 200, `[ {_id: string, name: string, image: string}, ... ]`
+
+  ## Edge Case Tests
+- **Invalid Resource ID**: DELETE /api/resources/invalid-id → 404
+- **Unauthorized Delete**: DELETE with different user → 403
+- **Invalid File Type**: POST /api/resources with .txt → 400
+- **Missing CSRF Token**: Omit CSRF-Token header → 403
+- **Expired JWT**: Use expired token → 401
