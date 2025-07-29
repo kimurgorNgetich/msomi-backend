@@ -21,6 +21,13 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+
+// --- THIS IS THE FIX ---
+// This line tells Express to trust the headers sent by the Render proxy.
+// It's crucial for secure cookies to work in a production environment.
+app.set('trust proxy', 1);
+// --- END OF FIX ---
+
 connectDB();
 app.use(morgan('combined'));
 
