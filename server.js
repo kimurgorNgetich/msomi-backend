@@ -15,32 +15,36 @@ import categoryRoutes from './routes/categories.js';
 import adminRoutes from './routes/admin.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs'; // Import the standard 'fs' module for synchronous operations
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000; // Render uses port 10000
 
-
-// --- THIS IS THE FIX ---
-// This line tells Express to trust the headers sent by the Render proxy.
-// It's crucial for secure cookies to work in a production environment.
 app.set('trust proxy', 1);
-// --- END OF FIX ---
-
 connectDB();
 app.use(morgan('combined'));
 
-// --- THIS IS THE FIX ---
-// Add your live frontend URL to this list of allowed origins.
+// --- NEW CODE BLOCK TO ENSURE UPLOADS DIRECTORY EXISTS ---
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.join(__dirname, 'Uploads');
+
+if (!fs.existsSync(uploadsDir)) {
+    console.log(`Creating directory: ${uploadsDir}`);
+    fs.mkdirSync(uploadsDir);
+}
+// --- END OF NEW CODE BLOCK ---
+
+// CORS
 const allowedOrigins = [
     'http://127.0.0.1:8082', 
     'http://localhost:8082', 
     'http://127.0.0.1:5500', 
     'http://localhost:5500',
-    'https://msomi-frontend.onrender.com'
+    process.env.FRONTEND_URL
 ];
-
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
@@ -51,17 +55,16 @@ app.use(cors({
   },
   credentials: true,
 }));
-// --- END OF FIX ---
 
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Static files
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Note: We serve the 'Uploads' directory with a different name for security
+app.use('/public-uploads', express.static(uploadsDir));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/resources', resourceRoutes);
