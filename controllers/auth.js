@@ -2,29 +2,40 @@
 
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto'; // Import crypto for token generation
+import crypto from 'crypto';
 import User from '../models/User.js';
-import sendEmail from '../utils/sendEmail.js'; // Import our email simulator
+import sendEmail from '../utils/sendEmail.js';
 
 // Helper function to set the cookie with the correct options
 const sendTokenResponse = (user, statusCode, res) => {
     const payload = { id: user._id, role: user.role };
     const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+
     const cookieOptions = {
         httpOnly: true,
-        expires: new Date(Date.now() + 60 * 60 * 1000),
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax' 
+        expires: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
     };
+
+    // --- THIS IS THE FIX ---
+    // If we are in production, we must add the 'secure' and 'sameSite' attributes
+    // for cross-domain cookies to work.
+    if (process.env.NODE_ENV === 'production') {
+        cookieOptions.secure = true;
+        cookieOptions.sameSite = 'none';
+    }
+
     res.cookie('token', token, cookieOptions);
+
     const userObj = user.toObject();
     delete userObj.password;
+
     res.status(statusCode).json({
         message: 'Success',
         token,
         user: userObj
     });
 };
+
 
 
 export const register = async (req, res) => {
